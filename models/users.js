@@ -20,6 +20,26 @@ const User = sequelize.define(
          type: DataTypes.STRING,
          allowNull: false,
       },
+      edad: {
+         type: DataTypes.INTEGER,
+         allowNull: false,
+      },
+      correo: {
+         type: DataTypes.STRING,
+         allowNull: false, 
+      },
+      carrera: {
+         type: DataTypes.STRING,
+         allowNull: false,
+      },
+      num_cuenta: {
+         type: DataTypes.INTEGER,
+         allowNull: false
+      },
+      password: {
+         type: DataTypes.STRING, 
+         allowNull: false,
+      },
    },
    {
       // For the sake of clarity we specify our indexes

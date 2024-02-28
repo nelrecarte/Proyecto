@@ -3,6 +3,7 @@ const app = express();
 const port = 3000;
 const db = require("./database");
 const { User } = require("./models/users");
+const { Post } = require("./models/posts");
 
 const initApp = async () => {
   console.log("Testing the database connection..");
@@ -32,6 +33,11 @@ const initApp = async () => {
           id: req.params.id,
         },
       });
+      return res.send(x);
+    });
+
+    app.get("/publicaciones", async (req, res) => {
+      const x = await Post.findAll();
       return res.send(x);
     });
 
