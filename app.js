@@ -123,6 +123,15 @@ const initApp = async () => {
       return res.send(x);
     });
 
+    app.get("/publicaciones/:id", async (req, res) => {
+      const x = await Post.findAll({
+        where: {
+          user_id: req.params.id
+        }
+      });
+      return res.send(x);
+    });
+
     app.post("/publicaciones", async (req, res) => {
       try {
         const result = await Post.create({
@@ -185,11 +194,11 @@ const initApp = async () => {
       }
     });
 
-    app.delete("/publicaciones", async (req, res) => {
+    app.delete("/publicaciones/:id", async (req, res) => {
       try {
         const toDelete = await Post.findOne({
           where: {
-            user_id: req.body.id,
+            id: req.params.id,
           },
         });
         const result = await toDelete.destroy();
