@@ -1,9 +1,14 @@
 const express = require("express");
 const app = express();
-const port = 3000;
+const port = 3001;
 const db = require("./database");
 const { User } = require("./models/users");
 const { Post } = require("./models/posts");
+const { Friend } = require("./models/friends");
+const cors = require("cors");
+app.use(cors());
+const { QueryTypes } = require("sequelize");
+const sequelize = require("./database");
 
 const initApp = async () => {
   app.use(express.json());
@@ -14,6 +19,23 @@ const initApp = async () => {
   try {
     await db.authenticate();
     console.log("Connection has been established successfully.");
+
+    User.hasMany(Post, {
+      foreignKey: "user_id",
+    });
+
+    User.belongsToMany(User, {
+      as: "friends",
+      // foreignKey: 'UserID1',
+      through: Friend,
+    });
+
+    User.belongsToMany(User, {
+      as: "userFriends",
+      // foreignKey: 'UserID2',
+      through: Friend,
+    });
+
     /**
      * Start the web server on the specified port.
      */
@@ -24,7 +46,9 @@ const initApp = async () => {
 
     app.get("/usuarios", async (req, res) => {
       //console.log(req);
-      const x = await User.findAll();
+      const x = await User.findAll({
+        include: [{ model: Post, as: "publicaciones" }],
+      });
       return res.send(x);
     });
 
@@ -99,12 +123,109 @@ const initApp = async () => {
       return res.send(x);
     });
 
+    app.post("/publicaciones", async (req, res) => {
+      try {
+        const result = await Post.create({
+          user_id: req.body.id,
+          texto: req.body.texto,
+        });
+        res.send(result);
+      } catch (err) {
+        res.status(400);
+        res.send(err);
+      }
+    });
+
+    app.get("/feed/:id", async (req, res) => {
+      try {
+        const user_id = req.params.id;
+        const query = `
+        SELECT 
+          amigos.UserID1,
+          amigos.UserID2,
+          amigos.id as friendship_id,
+          publicaciones.id as post_id,
+          publicaciones.texto as texto,
+          publicaciones.user_id  as user_id,
+          usuarios.nombre  as name
+      FROM amigos AS amigos 
+      LEFT OUTER JOIN publicaciones AS publicaciones ON amigos.UserID2 = publicaciones.user_id 
+      LEFT OUTER JOIN usuarios AS usuarios ON usuarios.id = publicaciones.user_id
+      WHERE 
+        amigos.UserID1 = '${user_id}' 
+      and
+        texto is not null;`;
+
+        const result = await sequelize.query(query, {
+          type: QueryTypes.SELECT,
+        });
+
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+        res.status(400);
+        res.send(err);
+      }
+    });
+
+    app.put("/publicaciones", async (req, res) => {
+      try {
+        const toUpdate = await Post.findOne({
+          where: {
+            user_id: req.body.id,
+          },
+        });
+        const result = await toUpdate.update({
+          texto: req.body.texto,
+        });
+        res.send(result);
+      } catch (err) {
+        res.status(400);
+        res.send(err);
+      }
+    });
+
+    app.delete("/publicaciones", async (req, res) => {
+      try {
+        const toDelete = await Post.findOne({
+          where: {
+            user_id: req.body.id,
+          },
+        });
+        const result = await toDelete.destroy();
+        res.send(result);
+      } catch (err) {
+        res.status(400);
+        res.send(err);
+      }
+    });
+
     app.listen(port, () => {
       console.log(`Server is running at: http://localhost:${port}`);
     });
+
+    app.post("/login", async (req, res) => {
+      const { correo, password } = req.body;
+
+      try {
+        const user = await User.findOne({ where: { correo } });
+
+        if (!user || user.password !== password) {
+          return res.status(401).json({ error: "Invalid email or password" });
+        }
+
+        //res.json({ message: "Login successful" });
+        res.send({ user, message: "login succesful" });
+      } catch (error) {
+        console.error("Error during login", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
   } catch (error) {
-    console.error("Unable to connect to the database:", error.original);
+    console.error("Unable to connect to the database:", error);
   }
 };
+
+//
 
 initApp();

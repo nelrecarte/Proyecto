@@ -1,7 +1,9 @@
 const { DataTypes } = require("sequelize"); // Import the built-in data types
 
 const sequelize = require("../database");
-// Import the built-in data types
+// const { Post } = require("./posts");
+// const { Friend } = require("./friends");
+// // Import the built-in data types
 
 const User = sequelize.define(
   "usuarios",
@@ -35,6 +37,10 @@ const User = sequelize.define(
     timestamps: false,
   }
 );
+
+// Post.belongsTo(User, {
+//   foreignKey: "user_id"
+// });
 
 module.exports = {
   User,
