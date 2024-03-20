@@ -20,29 +20,30 @@ const initApp = async () => {
     await db.authenticate();
     console.log("Connection has been established successfully.");
 
+    // Database Relationships
+
     User.hasMany(Post, {
       foreignKey: "user_id",
     });
 
-    User.belongsToMany(User, {
-      as: "friends",
-      // foreignKey: 'UserID1',
-      through: Friend,
-    });
+    // User.belongsToMany(User, {
+    //   as: "friends",
+    //   // foreignKey: 'UserID1',
+    //   through: Friend,
+    // });
 
-    User.belongsToMany(User, {
-      as: "userFriends",
-      // foreignKey: 'UserID2',
-      through: Friend,
-    });
+    // User.belongsToMany(User, {
+    //   as: "userFriends",
+    //   // foreignKey: 'UserID2',
+    //   through: Friend,
+    // });
 
-    /**
-     * Start the web server on the specified port.
-     */
     app.get("/", async (req, res) => {
       //console.log(req);
       return res.send("hello world");
     });
+
+    //API Usuarios
 
     app.get("/usuarios", async (req, res) => {
       //console.log(req);
@@ -118,6 +119,8 @@ const initApp = async () => {
       }
     });
 
+    //API publicaciones
+
     app.get("/publicaciones", async (req, res) => {
       const x = await Post.findAll();
       return res.send(x);
@@ -126,8 +129,8 @@ const initApp = async () => {
     app.get("/publicaciones/:id", async (req, res) => {
       const x = await Post.findAll({
         where: {
-          user_id: req.params.id
-        }
+          user_id: req.params.id,
+        },
       });
       return res.send(x);
     });
@@ -140,38 +143,6 @@ const initApp = async () => {
         });
         res.send(result);
       } catch (err) {
-        res.status(400);
-        res.send(err);
-      }
-    });
-
-    app.get("/feed/:id", async (req, res) => {
-      try {
-        const user_id = req.params.id;
-        const query = `
-        SELECT 
-          amigos.UserID1,
-          amigos.UserID2,
-          amigos.id as friendship_id,
-          publicaciones.id as post_id,
-          publicaciones.texto as texto,
-          publicaciones.user_id  as user_id,
-          usuarios.nombre  as name
-      FROM amigos AS amigos 
-      LEFT OUTER JOIN publicaciones AS publicaciones ON amigos.UserID2 = publicaciones.user_id 
-      LEFT OUTER JOIN usuarios AS usuarios ON usuarios.id = publicaciones.user_id
-      WHERE 
-        amigos.UserID1 = '${user_id}' 
-      and
-        texto is not null;`;
-
-        const result = await sequelize.query(query, {
-          type: QueryTypes.SELECT,
-        });
-
-        res.send(result);
-      } catch (err) {
-        console.log(err);
         res.status(400);
         res.send(err);
       }
@@ -208,6 +179,113 @@ const initApp = async () => {
         res.send(err);
       }
     });
+
+    // GET PUBLICACIONES DE AMIGOS EN EL FEED
+    app.get("/feed/:id", async (req, res) => {
+      try {
+        const user_id = req.params.id;
+        const query = `
+        SELECT 
+          amigos.UserID1,
+          amigos.UserID2,
+          amigos.id as friendship_id,
+          publicaciones.id as post_id,
+          publicaciones.texto as texto,
+          publicaciones.user_id  as user_id,
+          usuarios.nombre  as name
+      FROM amigos AS amigos 
+      LEFT OUTER JOIN publicaciones AS publicaciones ON amigos.UserID2 = publicaciones.user_id 
+      LEFT OUTER JOIN usuarios AS usuarios ON usuarios.id = publicaciones.user_id
+      WHERE 
+        amigos.UserID1 = '${user_id}' 
+      and
+        texto is not null;`;
+
+        const result = await sequelize.query(query, {
+          type: QueryTypes.SELECT,
+        });
+
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+        res.status(400);
+        res.send(err);
+      }
+    });
+
+    // API AMIGOS
+
+    // app.get('/amigos', async (req, res) => {
+    //   const x = await Friend.findAll({
+    //     include: [{model: User, as: 'usuarios' }],
+    //   });
+    //   return res.send
+    // });
+
+    app.get("/amigos/:id", async (req, res) => {
+      try {
+        const user_id = req.params.id;
+        const query = `
+        SELECT 
+          amigos.UserID2
+        FROM amigos AS amigos  
+        WHERE amigos.UserID1 = '${user_id}'`;
+
+        const id2 = await sequelize.query(query, {
+          type: QueryTypes.SELECT,
+        });
+
+        const userIds = id2.map((idObj) => idObj.UserID2);
+
+        const result = await User.findAll({
+          where: {
+            id: userIds,
+          },
+        });
+
+        res.send(result);
+      } catch (err) {
+        console.log(err);
+        res.status(400);
+        res.send(err);
+      }
+    });
+
+    app.post("/amigos", async (req, res) => {
+      try {
+        const amigoToAdd = await User.findOne({
+          where: {
+            correo: req.body.correo,
+          },
+        });
+
+        if (!amigoToAdd) {
+          // Handle case where amigo is not found
+          res.status(404).json({ error: "Amigo not found" });
+          return;
+        }
+
+        const result1 = await Friend.create({
+          UserID1: req.body.UserID1,
+          UserID2: amigoToAdd.id,
+        });
+
+        const result2 = await Friend.create({
+          UserID1: amigoToAdd.id,
+          UserID2: req.body.UserID1,
+        });
+
+        // Send a success response with the created friend relationships
+        res.status(201).json({ result1, result2 });
+      } catch (error) {
+        // Handle other errors
+        console.error("Error adding friend: ", error);
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+    /**
+     * Start the web server on the specified port.
+     */
 
     app.listen(port, () => {
       console.log(`Server is running at: http://localhost:${port}`);
